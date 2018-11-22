@@ -1,0 +1,65 @@
+	- B52.10-on.estimated.*b.txt are the centrality estimates from Gabriele.
+
+	- BICRO62_all_umiCount.txt and BICRO58_all_umiCount.txt files
+	Want to combine the counts for the BICRO62 and BICRO58 experiments into one file. 
+	See the merge_umiCount_bed.sh for how this is done. Need to edit this file to change the input data and the output file name.
+qsub scripts/merge_umiCount_bed.sh
+
+	- BICRO58_all_umiCount2.txt 
+	  Just get rid of the one weird outlier point
+grep -v cs_566759 BICRO58_all_umiCount.txt > BICRO58_all_umiCount2.txt
+
+	- BICRO58_all_umiCount2_kbm7hic_gc.txt
+sed 1d BICRO58_all_umiCount2.txt > tmp.bed
+sed 1d hic_data/KBM7/KBM7_combined.50kb.gcflip.bedGraph > tmp2.bed
+bedtools intersect -f 0.5 -wao -a tmp.bed -b tmp2.bed > testout
+cat testout | awk 'BEGIN{OFS="\t"}{if ($1==pchr && $2==pstart && $3==pend); else print $0; pchr=$1; pstart=$2; pend=$3}' > tmp3
+echo "chr	start	end	cs_id	hic_eigen	gc" > tmph
+cut -f1-4,14,15 tmp3 | cat tmph - > BICRO58_all_umiCount2_kbm7hic_gc.txt
+
+	- KBM7_combined.50kb.gcflip.bedGraph 
+	Correct eigenvectors to match GC content
+sed 1d chromatin_data/hg19_50kb_gc5.txt | paste GSE63525_KBM7_combined.50kb.bedGraph - | cut -f1-4,9 > tmp
+
+	In R:
+_______________________________________________________________
+dat <- read.table("tmp", header=F)
+colnames(dat) <- c("chr", "start", "end", "eigen", "GC")
+chrs <- rle(as.character(dat$chr))
+for (c in chrs$values){
+    xi <- dat$chr==c
+	myc <- cor(dat[xi,4], dat[xi,5], use="complete.obs")
+	if (!is.na(myc) && myc <0){
+		dat[xi,4]=-1 * dat[xi,4]
+	}
+}
+write.table(dat, file="KBM7_combined.50kb.gcflip.bedGraph", col.names=TRUE, sep="\t", quote=F, row.names=F)
+_______________________________________________________________
+
+##################################################################
+# HMM 
+	- Run depmix in R to create HMMs of the cutsite data
+for i in {4..9}; 
+do 
+	echo $i; 
+	qsub -v GPSEQDATA=GPSeq_data1/BICRO58_all_umiCount2.txt -v PARAMS=params_m3.txt -v NSTATES=$i -v OUTPUT=depmix_results/bicro58_m1s$i scripts/run_depmix.sh; 
+done
+
+##################################################################
+# Extra necessary files. 
+#
+	- hg19_50kb_bins.txt 
+	This has 50kb bins along the genome, given a file of chromosome lengths
+awk 'BEGIN{x=0; id=1}{while(x+win <= $2) {print "chr"$1"\t"x"\t"x+win"\t"id; x+=win; id+=1} print "chr"$1"\t"x"\t"$2"\t"id; x=0; id+=1}' win=50000 hg19.lengths > hg19_50kb_bins.bed
+
+	- hg19_50kb_gc5.txt 
+ls ~/scratch/downloads/hg19.gc5Base.bigWig > bw.list
+qsub -v BEDFILE=hg19_50kb_gc5.txt -v BIGWIGS=bw.list -v OUT=hg19_50kb_gc5.txt scripts/score_bedfile_with_bigwigs.sh 
+
+	- GSE63525_KBM7_combined.50kb.bedGraph
+	This is just the juicer output converted to bedGraph
+qsub -v HIC=~/scratch/downloads/rao/GSE63525_KBM7_combined.hic -v BINSIZE=50000 -v OUTPUT=GSE63525_KBM7_combined.50kb.txt scripts/run_juicer.sh
+sort -k1,1 -k2,2n GSE63525_KBM7_combined.50kb.txt > GSE63525_KBM7_combined.50kb.bedGraph
+	
+	- B52.10-on.estimated.*b.txt are the centrality estimates from Gabriele.
+
