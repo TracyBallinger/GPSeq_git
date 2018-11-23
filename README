@@ -1,11 +1,12 @@
-	- B52.10-on.estimated.*b.txt are the centrality estimates from Gabriele.
+	These are the commands used to generate the input files for analysis and for making an HMM using the depmix package in R. 
+										-by Tracy Ballinger
 
 	- BICRO62_all_umiCount.txt and BICRO58_all_umiCount.txt files
 	Want to combine the counts for the BICRO62 and BICRO58 experiments into one file. 
 	See the merge_umiCount_bed.sh for how this is done. Need to edit this file to change the input data and the output file name.
 qsub scripts/merge_umiCount_bed.sh
 
-	- BICRO58_all_umiCount2.txt 
+	- BICRO58_all_umiCount2.txt
 	  Just get rid of the one weird outlier point
 grep -v cs_566759 BICRO58_all_umiCount.txt > BICRO58_all_umiCount2.txt
 
@@ -57,7 +58,7 @@ ls ~/scratch/downloads/hg19.gc5Base.bigWig > bw.list
 qsub -v BEDFILE=hg19_50kb_gc5.txt -v BIGWIGS=bw.list -v OUT=hg19_50kb_gc5.txt scripts/score_bedfile_with_bigwigs.sh 
 
 	- GSE63525_KBM7_combined.50kb.bedGraph
-	This is just the juicer output converted to bedGraph
+	This is just Juicer output converted to bedGraph
 qsub -v HIC=~/scratch/downloads/rao/GSE63525_KBM7_combined.hic -v BINSIZE=50000 -v OUTPUT=GSE63525_KBM7_combined.50kb.txt scripts/run_juicer.sh
 sort -k1,1 -k2,2n GSE63525_KBM7_combined.50kb.txt > GSE63525_KBM7_combined.50kb.bedGraph
 	
